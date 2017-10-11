@@ -16,7 +16,7 @@ output:
     margin-right:10%;
 }
 </style>
-```{r,setup, echo=FALSE, cache=TRUE}
+```{r, echo=TRUE, cache=TRUE, setup, echo=FALSE}
 ## numbers >= 10^5 will be denoted in scientific notation,
 ## and rounded to 2 digits
 options(scipen = 3, digits = 3)
@@ -32,14 +32,123 @@ With this project we will simulate a famoues probability problem. This will not 
 
  1. **Gambler's Ruin**: Suppose you have a bankroll of $1000 and make bets of $100 on a fair game. By simulating the outcome directly for at most 5000 iterations of the game (or hands), estimate:
     a. the probability that you have "busted" (lost all your money) by the time you have placed your one hundredth bet. 
+```{r, echo=TRUE}
+sim_function <- function(bankroll, bets, goal){
+  info <- 0
+  while(bankroll >= bets & info < goal){
+    if (rbinom(1,1,0.5)==1) {
+   bankroll <- bankroll + bets
+     info <- info+1
+  }else{
+   bankroll <- bankroll - bets
+    info <- info + 1
+  }
+  }
+return(info)
+  }
+rep <- replicate(10000,sim_function(1000,100,5000))
+length(which(rep <= 100))/10000
+
+```
     b. the probability that you have busted by the time you have placed your five hundredth bet by simulating the outcome directly. 
+```{r, echo=TRUE}
+length(which(rep <= 500))/10000
+
+```
     c. the mean time you go bust, given that you go bust within the first 5000 hands.
+```{r, echo=FALSE}
+mean(rep)
+
+```
     d. the mean and variance of your bankroll after 100 hands (including busts).
+```{r, echo=TRUE}
+my_bankroll <- function(bankroll, bets, goal){
+  info = 0
+    while(bankroll>=bets & info < goal){
+    if (rbinom(1,1,0.5)==1) {
+   bankroll <- bankroll + bets
+     info <- info+1}
+      else{
+   bankroll <- bankroll - bets
+    info <- info + 1
+    }
+  }
+  return(c(bankroll, info))
+}
+
+record <- matrix(replicate(10000,sim_function(1000,100,5000)),nrow = 10000,ncol = 2,byrow = T)
+colnames(record)<-c("bankroll","info")
+record <- as.data.frame(record)
+
+mean(record$bankroll[record$info > 100])
+var(record$bankroll[record$info > 100])
+
+```
     e. the mean and variance of your bankroll after 500 hands (including busts).
+```{r, echo=TRUE}
+mean(record$bankroll[record$info > 500])
+var(record$bankroll[record$info > 500])
+
+```
  
 Note: you *must* stop playing if your player has gone bust. How will you handle this in the `for` loop?
 
 2. **Markov Chains**. Suppose you have a game where the probability of winning on your first hand is 48%; each time you win, that probability goes up by one percentage point for the next game (to a maximum of 100%, where it must stay), and each time you lose, it goes back down to 48%. Assume you cannot go bust and that the size of your wager is a constant $100.
     a. Is this a fair game? Simulate one hundred thousand sequential hands to determine the size of your return. Then repeat this simulation 99 more times to get a range of values to calculate the expectation.
+```{r, echo=TRUE}
+# It is not a fair game since the simulated expectation is a negative value.
+Markov_Simulation <- function (wager, org_prob, prob_change, goals) {
+  info = 1
+  bankroll = 0
+  in_game_prob = org_prob
+  while (info <= goals){
+    if (rbinom(1, 1, org_prob) == 1){
+      bankroll = bankroll + wager
+      if (in_game_prob + prob_change <= 1){
+        in_game_prob = in_game_prob + prob_change
+      } else {
+        in_game_prob = 1
+      }
+      info = info + 1
+    } else {
+      bankroll = bankroll - wager
+      in_game_prob = org_prob
+      info = info +1
+    }
+  } 
+  return(bankroll)
+}
+
+Markov_Simulation(100, .48, .01, 100000)
+
+Markov_Simulation_100 <- replicate(100, Markov_Simulation(100, .48, .01, 100000))
+
+mean(Markov_Simulation_100)
+
+```
     b. Repeat this process but change the starting probability to a new value within 2% either way. Get the expected return after 100 repetitions. Keep exploring until you have a return value that is as fair as you can make it. Can you do this automatically?
+```{r, echo=TRUE}
+my_fair_prob <- function(p){
+  mean <- mean(replicate(100,Markov_Simulation(100,p,0.01, 100000)))
+while(mean < 0){
+  p=p + 0.01
+mean <- mean(replicate(100,Markov_Simulation(100,p, 0.01, 100000)))
+}
+return(p)
+}
+my_fair_prob(0.46)
+```
     c. Repeat again, keeping the initial probability at 48%, but this time change the probability increment to a value different from 1%. Get the expected return after 100 repetitions. Keep changing this value until you have a return value that is as fair as you can make it. 
+```{r, echo=TRUE}
+my_fair_change <- function(p,i){
+  mean <- mean(replicate(100,Markov_Simulation(100,p,i,100000)))
+while(mean < 0){
+  i=i+0.001 
+  p=p+i
+  mean <- mean(replicate(100,Markov_Simulation(100,p,i,100000)))
+}
+return(i)
+}
+my_fair_change(0.48,0)
+
+```
